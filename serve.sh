@@ -3,7 +3,7 @@
 #
 #   ./serve.sh                       # downloads google/gemma-4-31B-it @ the pinned revision from Hugging Face, serves on :8040
 #   MODEL=/path/to/snapshot ./serve.sh   # or point at a local copy of that exact revision
-#   QUANT=fp8 ./serve.sh                 # on-the-fly FP8 weights (vLLM), for cards with less than ~80 GB free
+#   QUANT=none ./serve.sh                # bf16 weights instead of the default FP8 (needs ~96 GB, or MAXLEN=11000 on 80 GB)
 #
 # Needs one GPU with >= 80 GB (bf16 weights 62.5 GB + paged KV for 90k-token prompts via chunked prefill) and the pinned
 # Python packages from requirements.txt (vllm 0.31.0 brings torch 2.13.0).  Two processes: stock `vllm serve` (OpenAI-compatible
@@ -13,13 +13,18 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 PORT=${PORT:-8040}; VPORT=${VPORT:-8891}; GPU=${GPU:-0}; CFG=${CFG:-decider_config.json}
-# QUANT=fp8 serves the same weights with vLLM's on-the-fly FP8 (needed only if the card has < ~80 GB free; see README)
-QARG=(); [ -n "${QUANT:-}" ] && QARG=(--quantization "$QUANT")
+# Weights precision: FP8 by default (vLLM on-the-fly quantisation of the same bf16 checkpoint). This is the measured and calibrated
+# configuration and the one that fits an 80 GB card with the full 90k-token context. QUANT=none serves bf16 (needs ~96 GB or
+# MAXLEN<=11000 on 80 GB); the calibration file was fitted on the FP8 path, so bf16 is not the submitted configuration.
+QUANT=${QUANT:-fp8}; QARG=(); [ "$QUANT" != "none" ] && QARG=(--quantization "$QUANT")
 REPO=$(python3 -c "import json; print(json.load(open('$CFG'))['base_model']['repo'])")
 REV=$(python3 -c "import json; print(json.load(open('$CFG'))['base_model']['revision'])")
 STYLE=$(python3 -c "import json; print(json.load(open('$CFG'))['prompt_style'])")
 MODEL=${MODEL:-$REPO}
 export CUDA_VISIBLE_DEVICES=$GPU
+# No just-in-time kernel builds at start-up: vLLM's FlashInfer sampler compiles CUDA ops with nvcc on first use, which fails on hosts
+# without a CUDA toolkit (the wheels need only the driver). The PyTorch sampler is used instead; the readout only needs logprobs.
+export VLLM_USE_FLASHINFER_SAMPLER=${VLLM_USE_FLASHINFER_SAMPLER:-0}
 REVARG=(); [ "$MODEL" = "$REPO" ] && REVARG=(--revision "$REV")
 vllm serve "$MODEL" "${REVARG[@]}" "${QARG[@]}" --served-model-name decider --host 127.0.0.1 --port "$VPORT" \
     --max-model-len ${MAXLEN:-90000} --gpu-memory-utilization ${GPU_UTIL:-0.92} --enable-chunked-prefill --max-num-batched-tokens 8192 --max-num-seqs 8 &

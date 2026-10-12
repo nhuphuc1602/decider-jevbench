@@ -1,6 +1,6 @@
 {
  "decider_format": 1,
- "name": "decider-path1",
+ "name": "decider-31b-fp8",
  "base_model": {
   "repo": "google/gemma-4-31B-it",
   "revision": "842da3794eaa0b77d5f08bae87a17459d91ff475"
@@ -9,9 +9,9 @@
  "prompt_style": "cygnet-short",
  "noncausal": false,
  "temperatures": {
-  "choice": 5.9,
-  "choice_prob": 4.9,
-  "noul": 7.2,
+  "choice": 5.1,
+  "choice_prob": 5.2,
+  "noul": 9.0,
   "score": 1.0
  },
  "noul_commit": 0.9,
@@ -21,15 +21,10 @@
   "truncation": "head/tail of the state when over the limit; never refused"
  },
  "calibration_fit": {
-  "on": "own generated dev items, fitted on the vLLM serving path's raw outputs; mixture of frozen-hard holdouts (t1hold 170, t5hold 210) and sampled easy dev_cal_clean items chosen so that per-type ACCURACY matches the official per-type competence of the same frozen recipe (deck-31B v1.6.1: choice CC 83.9, noul 78.1); never JevBench items",
-  "objective": "per type: CC + calibration part; score T fixed at 1.0 (expected-level metric)",
-  "policy": "matched (bench/fit_matched.py)",
-  "file": "calib/frozenv-matched.json",
-  "public_check_not_fitted_on": "231 public items, serving path: argmax 213, I 80.1, C 92.2, cap 86.2 (dev-fitted policy 84.4; sensitivity over noul targets 0.90-0.94: 85.2-86.2)",
-  "targets": {
-   "choice": "accuracy 0.878 from the official deck-31B choice CC 83.9",
-   "noul": "accuracy 0.925 = public 0.946 minus the ~2-point public-sealed gap (the official noul CC is depressed by abstentions and not usable)",
-   "score": "T fixed at 1.0"
-  }
- }
+  "on": "own generated decision items only, never JevBench items: raw (T=1) outputs taken from this exact serving path (vLLM 0.31.0, FP8, H100 80GB), on a mixture of frozen-model-hard holdouts (170 + 210 items) and easier dev items (649) chosen so that per-type accuracy matches the difficulty the sealed pool is believed to have (choice: accuracy 0.878 from the official competence of the same frozen recipe, deck-31B; noul: 0.925 = public accuracy minus the ~2-point public-sealed gap; score: temperature fixed at 1 because its competence uses the expected level)",
+  "objective": "per type: chance-corrected competence + the JevBench calibration term",
+  "file": "results/calibration_fit.json",
+  "public_check_not_fitted_on": "231 public items through the official CLI on the H100 (FP8): 213/231 correct, 0 failures"
+ },
+ "quantization": "fp8 (vLLM on-the-fly quantisation of the pinned bf16 checkpoint; the measured and calibrated configuration)"
 }

@@ -1,16 +1,16 @@
 {
  "temperatures": {
-  "choice": 5.9,
-  "choice_prob": 4.9,
-  "noul": 7.2,
+  "choice": 5.1,
+  "choice_prob": 5.2,
+  "noul": 9.0,
   "score": 1.0
  },
  "noul_commit": 0.9,
  "fitted_on": {
-  "easy": "results/dev/frozenv-devcal.jsonl",
+  "easy": "results/dev/h100fp8v-devcal.jsonl",
   "hard": [
-   "results/dev/frozenv-t1hold.jsonl",
-   "results/dev/frozenv-t5hold.jsonl"
+   "results/dev/h100fp8v-t1hold.jsonl",
+   "results/dev/h100fp8v-t5hold.jsonl"
   ],
   "targets_cc": {
    "choice": 83.9
@@ -19,6 +19,6 @@
    "noul": 0.925
   }
  },
- "n": 841,
- "held_out_cap_mean": 87.93156293027307
+ "n": 920,
+ "held_out_cap_mean": 87.7633534095542
 }
