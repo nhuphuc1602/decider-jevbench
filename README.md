@@ -22,17 +22,19 @@ and tail are kept and `warnings` carries `state_truncated`); a question is never
 ## Run (one GPU with 80 GB; measured on an NVIDIA H100 80GB, the evaluator's card)
 
 System prerequisites: Linux x86-64, an NVIDIA driver that supports CUDA 13 (the vllm 0.31.0 wheels are built against CUDA 13.0 and need
-no CUDA toolkit), `gcc`, and **Python 3.12 with its development headers** (`python3.12-dev`; vLLM's torch.compile/Triton path compiles a
-small C helper at start-up and fails with `Python.h: No such file or directory` without them). A `uv`-managed interpreter
-(`uv python install 3.12`) ships the headers and works without root. No CUDA toolkit is needed: `serve.sh` sets
+no CUDA toolkit), `gcc`, and **Python 3.12 with its development headers and venv module** (Debian/Ubuntu: `python3.12 python3.12-dev
+python3.12-venv`; vLLM's torch.compile/Triton path compiles a small C helper at start-up and fails with `Python.h: No such file or
+directory` without the headers). A `uv`-managed interpreter (`uv python install 3.12`) ships the headers and works without root.
+`serve.sh` itself needs only bash and the Python of the environment (readiness is probed with Python, not curl). No CUDA toolkit is needed: `serve.sh` sets
 `VLLM_USE_FLASHINFER_SAMPLER=0`, so vLLM uses its PyTorch sampler instead of compiling FlashInfer's sampling kernels with nvcc at start-up
 (that build also needs cuRAND headers and fails on hosts without them); attention runs on the prebuilt Triton flash-attention backend.
 
 ```bash
-python3.12 -m venv .venv && . .venv/bin/activate     # or: uv venv --python 3.12 .venv && . .venv/bin/activate
+python3.12 -m venv .venv && . .venv/bin/activate     # or: uv venv --seed --python 3.12 .venv && . .venv/bin/activate
 pip install -r requirements.txt          # vllm==0.31.0 (brings torch 2.13.0 / CUDA 13 wheels), fastapi, httpx, uvicorn  (~8 GB)
+                                         # (with uv you can also run: uv pip install -r requirements.txt)
 ./serve.sh                               # downloads the pinned revision from Hugging Face on first use (62.5 GB); serves on :8040
-curl -s localhost:8040/health
+curl -s localhost:8040/health            # or any HTTP client
 ```
 `serve.sh` starts stock `vllm serve google/gemma-4-31B-it --revision 842da379... --quantization fp8 --served-model-name decider
 --max-model-len 90000 --enable-chunked-prefill --max-num-batched-tokens 8192 --max-num-seqs 8` and then `python3 -m decider.server`,
@@ -57,17 +59,22 @@ Weights are 62.5 GB in bf16; nothing else is downloaded.
 
 ## Calibration: how the temperatures were chosen (disclosure)
 
-- No JevBench item, public or sealed, was used to fit anything. The 231 public items were used once, after fitting, to measure
-  (see RESULTS.md).
+- No JevBench item, public or sealed, is in any fitting set. Two aggregates touched the policy: our accuracy on the 74 public noul
+  items (94.6%) set the difficulty target of the noul fitting mixture (target 0.925 = that accuracy minus the ~2-point public-sealed gap
+  reported by the board), and the decision to keep the score temperature at 1 was taken after seeing how the public score items behave
+  under flattening. The 231 public items were otherwise used only to measure candidate policies (every run is listed in RESULTS.md).
 - Fitting data: our own generated decision items (rule-generated items with computed gold and LLM-authored items whose gold was
   accepted by two independent model families), split into an easy pool and two frozen-model-hard holdouts; raw outputs were collected
   through this exact serving path (vLLM 0.31.0, FP8, H100 80GB). For each type the fit set is
-  a mixture of hard and easy items whose accuracy matches the published competence of this same frozen recipe on the full JevBench pool
-  (deck-31B, v1.6.1), so that the temperatures are tuned for the difficulty the sealed items have rather than for our easier dev items.
+  a mixture of hard and easy items whose accuracy matches the published sealed-half competence of this same frozen recipe (deck-31B,
+  v1.6.1: choice CC 83.9 -> accuracy 0.878 at the items' mean chance level), so that the temperatures are tuned for the difficulty the
+  sealed items have rather than for our easier dev items. The fitted mixture is the per-type difficulty-matched subsample (n = 920) of
+  the three raw files under `results/dev/` (649 + 170 + 210 items).
 - Objective per type: chance-corrected competence + the calibration term of the JevBench method (choice: top-label ECE over hard
   items, 10 bins; noul: ECE of P(yes); score: 50*RPS + 100*top-level ECE), with the score temperature fixed at 1 because the score
   competence uses the expected level. Raw outputs were taken from this very serving path (vLLM logprobs), not from a different readout.
-- `results/calibration_fit.json` records the fitted policy and the files it was fitted on.
+- `results/calibration_fit.json` records the fitted policy, the targets and the raw files (committed under `results/dev/`) it was
+  fitted on.
 
 ## Cost basis
 

@@ -13,7 +13,8 @@ one NVIDIA H100 80GB, official JevBench CLI (`jevbench.cli run --adapter typesaf
 
 Files: `results/public_231_official_cli.jsonl` (the CLI's per-item results of this run, made with the committed `decider_config.json`), `results/calibration_fit.json` (the fitted policy
 and the files it was fitted on). Calibration was fitted on our own generated decision items only (frozen-hard holdouts mixed with easier
-items so that per-type accuracy matches the published competence of the same frozen recipe); never on JevBench items.
+items so that per-type accuracy matches the published sealed-half competence of the same frozen recipe); no JevBench item is in a
+fitting set (README, Calibration, lists the two public-set aggregates that informed the policy).
 
 Note on the public-set numbers: the local Intelligence estimate moves by several points between otherwise equivalent runs because the
 public set has only 6 hard score items (one hedged item moves the score competence by ~14 points) and the choice calibration term is an

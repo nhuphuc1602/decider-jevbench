@@ -20,5 +20,6 @@
   }
  },
  "n": 920,
- "held_out_cap_mean": 87.7633534095542
+ "held_out_cap_mean": 87.7633534095542,
+ "n_note": "n = size of the per-type difficulty-matched subsample drawn from the three files (649 + 170 + 210 rows)"
 }

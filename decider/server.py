@@ -14,6 +14,7 @@ model names per question type; not used by the submitted configuration.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import math
 import re
@@ -102,30 +103,46 @@ async def systemone(req: Request):
         letters = list(CYGNET_LETTERS[:n])
         rt = S["routes"].get(q["type"], S["default"])
         payload = {"model": rt["model"], "messages": msgs, "max_tokens": 1, "temperature": 1.0, "logprobs": True,
-                   "top_logprobs": 20, "structured_outputs": {"choice": letters},
+                   "top_logprobs": max(20, min(60, 2 * n + 4)), "structured_outputs": {"choice": letters},
                    "chat_template_kwargs": {"enable_thinking": False}}
-        try:
-            r = await S["client"].post(S["vllm"] + "/v1/chat/completions", json=payload, timeout=S["timeout"])
-        except Exception as e:  # noqa: BLE001
-            return JSONResponse({"error": f"vLLM unreachable: {e}"}, status_code=502)
-        # never refuse a long state: on a context-limit error, keep the head and tail of the state and retry (like Quyet)
-        truncated = False
-        for attempt in range(6):
+        async def post(pl):
+            """One call to vLLM with a single retry on transport errors / 5xx (a transient failure must not cost an item)."""
+            last = None
+            for i in range(2):
+                try:
+                    resp = await S["client"].post(S["vllm"] + "/v1/chat/completions", json=pl, timeout=S["timeout"])
+                    if resp.status_code < 500:
+                        return resp
+                    last = resp
+                except Exception as e:  # noqa: BLE001
+                    last = e
+                await asyncio.sleep(1.0)
+            return last
+        r = await post(payload)
+        if not hasattr(r, "status_code"):
+            return JSONResponse({"error": f"vLLM unreachable: {r}"}, status_code=502)
+        # never refuse a long state: on a context-limit error, first try the compact JSON form of an object state, then keep the
+        # head and tail of the state and retry (like Quyet)
+        compacted = False
+        for attempt in range(7):
             if r.status_code == 200:
                 break
             detail = r.text[:300]
             if r.status_code == 400 and re.search(r"maximum context length|max_model_len|too long", detail, re.I):
-                st = state if isinstance(state, str) else json.dumps(state, ensure_ascii=False)
-                keep = int(len(st) * 0.7)
-                st = st[: keep // 2] + "\n[...]\n" + st[-(keep - keep // 2):]
-                state = st
-                truncated = True
+                if not isinstance(state, str) and not compacted:
+                    state = json.dumps(state, ensure_ascii=False)   # compact form: often enough on its own, no information lost
+                    compacted = True
+                else:
+                    st = state if isinstance(state, str) else json.dumps(state, ensure_ascii=False)
+                    keep = int(len(st) * 0.7)
+                    st = st[: keep // 2] + "\n[...]\n" + st[-(keep - keep // 2):]
+                    state = st
+                    truncated = True
                 msgs, items = messages_for(S["style"], state, q)
                 payload["messages"] = msgs
-                try:
-                    r = await S["client"].post(S["vllm"] + "/v1/chat/completions", json=payload, timeout=S["timeout"])
-                except Exception as e:  # noqa: BLE001
-                    return JSONResponse({"error": f"vLLM unreachable: {e}"}, status_code=502)
+                r = await post(payload)
+                if not hasattr(r, "status_code"):
+                    return JSONResponse({"error": f"vLLM unreachable: {r}"}, status_code=502)
                 continue
             return JSONResponse({"error": f"vLLM HTTP {r.status_code}: {detail}"}, status_code=502)
         if r.status_code != 200:

@@ -27,9 +27,18 @@ export CUDA_VISIBLE_DEVICES=$GPU
 export VLLM_USE_FLASHINFER_SAMPLER=${VLLM_USE_FLASHINFER_SAMPLER:-0}
 REVARG=(); [ "$MODEL" = "$REPO" ] && REVARG=(--revision "$REV")
 vllm serve "$MODEL" "${REVARG[@]}" "${QARG[@]}" --served-model-name decider --host 127.0.0.1 --port "$VPORT" \
-    --max-model-len ${MAXLEN:-90000} --gpu-memory-utilization ${GPU_UTIL:-0.92} --enable-chunked-prefill --max-num-batched-tokens 8192 --max-num-seqs 8 &
+    --max-model-len ${MAXLEN:-90000} --gpu-memory-utilization ${GPU_UTIL:-0.92} --enable-chunked-prefill --max-num-batched-tokens 8192 --max-num-seqs 8 \
+    --max-logprobs 64 &
 VLLM_PID=$!
 trap 'kill $VLLM_PID 2>/dev/null || true' EXIT
-until curl -sf "http://127.0.0.1:$VPORT/v1/models" >/dev/null; do sleep 5; kill -0 $VLLM_PID 2>/dev/null || { echo "vllm exited"; exit 1; }; done
+ready() { python3 - "$VPORT" <<'PY'
+import sys, urllib.request
+try:
+    urllib.request.urlopen(f"http://127.0.0.1:{sys.argv[1]}/v1/models", timeout=3); sys.exit(0)
+except Exception:
+    sys.exit(1)
+PY
+}
+until ready; do sleep 5; kill -0 $VLLM_PID 2>/dev/null || { echo "vllm exited"; exit 1; }; done
 exec python3 -m decider.server --vllm "http://127.0.0.1:$VPORT" --model decider --name decider \
     --host 0.0.0.0 --port "$PORT" --prompt-style "$STYLE" --calib "$CFG"
