@@ -9,9 +9,9 @@ one NVIDIA H100 80GB, official JevBench CLI (`jevbench.cli run --adapter typesaf
 | latency, serial, H100 | p50 34 ms, p95 228 ms raw -> adjusted p50 2x + 0.15 s = 0.22 s (cap 1.233 s) |
 | mean `usage.input_tokens` | 651 -> $0.0586 per 1,000 decisions at the OpenRouter list price of gemma-4-31b-it ($0.09/M input; 0 output tokens; cap $0.0646) |
 | noul abstentions (P(yes) in 0.2-0.8) | 0 |
-| local v1.6 scorer on this run | Intelligence 74.9, Calibration 89.1, Capability 82.0 (public half only; see the note below) |
+| local v1.6 scorer on this run | Intelligence 74.9, Calibration 88.3, Capability 81.6 (public half only; see the note below) |
 
-Files: `results/public_231_official_cli.jsonl` (the CLI's per-item results of this run), `results/calibration_fit.json` (the fitted policy
+Files: `results/public_231_official_cli.jsonl` (the CLI's per-item results of this run, made with the committed `decider_config.json`), `results/calibration_fit.json` (the fitted policy
 and the files it was fitted on). Calibration was fitted on our own generated decision items only (frozen-hard holdouts mixed with easier
 items so that per-type accuracy matches the published competence of the same frozen recipe); never on JevBench items.
 
