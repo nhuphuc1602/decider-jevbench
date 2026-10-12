@@ -1,0 +1,24 @@
+{
+ "temperatures": {
+  "choice": 5.9,
+  "choice_prob": 4.9,
+  "noul": 7.2,
+  "score": 1.0
+ },
+ "noul_commit": 0.9,
+ "fitted_on": {
+  "easy": "results/dev/frozenv-devcal.jsonl",
+  "hard": [
+   "results/dev/frozenv-t1hold.jsonl",
+   "results/dev/frozenv-t5hold.jsonl"
+  ],
+  "targets_cc": {
+   "choice": 83.9
+  },
+  "targets_acc": {
+   "noul": 0.925
+  }
+ },
+ "n": 841,
+ "held_out_cap_mean": 87.93156293027307
+}

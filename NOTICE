@@ -1,0 +1,6 @@
+Decider (JevBench submission) — Copyright 2026 nhuphuc1602. Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This system serves google/gemma-4-31B-it (revision 842da3794eaa0b77d5f08bae87a17459d91ff475) unmodified; Gemma 4 is released by
+Google under the Apache License, Version 2.0 (per the model card). The prompt scaffold follows the "Cygnet" letter-mass readout
+recipe published with the deck-31B JevBench entry. Serving uses vLLM (Apache-2.0), FastAPI (MIT), httpx (BSD-3) and uvicorn (BSD-3).
+No JevBench item (public or sealed) was used to fit anything in this repository.
